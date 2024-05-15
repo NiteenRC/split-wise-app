@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: SPLIT-WISE-APP
+  datasource:
+    url: jdbc:mysql://localhost:3306/split-wise?createDatabaseIfNotExist=true
+    username: root
+    password: Root@123
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
