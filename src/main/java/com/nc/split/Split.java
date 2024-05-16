@@ -16,7 +16,6 @@ public class Split {
     @JoinColumn(name = "group_id")
     private Group group;
     @OneToOne
-    //@JoinColumn(name = "user_id")
     private User user;
     private Double splitAmount;
 }

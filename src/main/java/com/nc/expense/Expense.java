@@ -27,4 +27,6 @@ public class Expense {
     @ManyToOne
     @JoinColumn(name = "group_id")
     private Group group;
+    @OneToMany
+    private List<Expense> expenses;
 }

@@ -41,7 +41,7 @@ public class ExpenseService {
     public Expense saveOrUpdateExpense(Expense expense) {
         Expense savedExpense = expenseRepository.save(expense);
         List<User> splitBetweenUsers = expense.getSplitBetweenUsers();
-        double splitAmount = expense.getExpenseAmount() / splitBetweenUsers.size();
+        double splitAmount = expense.getAmountPaid() / splitBetweenUsers.size();
 
         // Create transaction records for each user
         for (User user : splitBetweenUsers) {
@@ -49,7 +49,6 @@ public class ExpenseService {
             transaction.setUser(user);
             transaction.setExpense(savedExpense);
             transaction.setGroup(expense.getGroup());
-            transaction.setExpense(savedExpense);
 
             double splitAmountForUser = splitAmount;
             if (user.getId().equals(expense.getUser().getId())) {
@@ -60,23 +59,37 @@ public class ExpenseService {
             }
             transactionService.saveOrUpdateTransaction(transaction);
 
-            // Update split for the group
-            updateGroupSplit(expense.getGroup(), user, splitAmountForUser);
+            // increase performance while fetching
+            //updateGroupSplit(expense.getGroup(), user, splitAmountForUser);
         }
 
         return savedExpense;
     }
 
     private void updateGroupSplit(Group group, User user, double splitAmount) {
-        Optional<Split> splitOptional = splitRepository.findByUser(user);
+        // Find the existing split record for the user and group
+        Optional<Split> existingSplitOptional = splitRepository.findByGroupAndUser(group, user);
 
-        Split split = splitOptional.orElseGet(Split::new);
-        split.setGroup(group);
-        split.setUser(user);
-        double splitAmount1 = split.getSplitAmount() == null ? 0 : split.getSplitAmount();
-        split.setSplitAmount(splitAmount1 + splitAmount);
-        splitService.saveOrUpdateSplit(split);
+        Split splitToUpdate;
+        if (existingSplitOptional.isPresent()) {
+            // If a split record exists for the user in the group, update it
+            splitToUpdate = existingSplitOptional.get();
+        } else {
+            // If no split record exists for the user in the group, create a new one
+            splitToUpdate = new Split();
+            splitToUpdate.setGroup(group);
+            splitToUpdate.setUser(user);
+        }
+
+        // Update the split amount
+        double currentSplitAmount = splitToUpdate.getSplitAmount() == null ? 0 : splitToUpdate.getSplitAmount();
+        double newSplitAmount = currentSplitAmount + splitAmount;
+        splitToUpdate.setSplitAmount(newSplitAmount);
+
+        // Save or update the split record
+        splitService.saveOrUpdateSplit(splitToUpdate);
     }
+
 }
 
 
