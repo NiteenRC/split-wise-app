@@ -3,6 +3,8 @@ package com.nc.expense;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.expenseDetails.ExpenseDetailsRepository;
 import com.nc.group.Group;
+import com.nc.model.ExpenseDTO;
+import com.nc.model.ExpenseDtoConverter;
 import com.nc.model.ExpenseModel;
 import com.nc.model.SplitType;
 import com.nc.payment.Payment;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -24,12 +27,12 @@ import java.util.Optional;
 public class ExpenseService {
     private ExpenseRepository expenseRepository;
     private ExpenseDetailsRepository expenseDetailsRepository;
-    private PaymentService PaymentService;
+    private PaymentService paymentService;
     private SplitService splitService;
     private SplitRepository splitRepository;
 
-    public List<Expense> getAllExpenses() {
-        return expenseRepository.findAll();
+    public List<ExpenseDTO> getAllExpenses() {
+        return expenseRepository.findAll().stream().map(ExpenseDtoConverter::convertToDto).collect(Collectors.toList());
     }
 
     public Expense getExpenseById(Long id) {
@@ -69,7 +72,7 @@ public class ExpenseService {
         Payment.setPayee(payee);
         Payment.setAmount(amount);
         Payment.setExpense(expense);
-        PaymentService.saveOrUpdateTransaction(Payment);
+        paymentService.saveOrUpdateTransaction(Payment);
     }
 
     private void saveExpenseDetails(ExpenseModel expenseModel, Expense savedExpense) {

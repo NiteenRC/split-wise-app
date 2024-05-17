@@ -1,5 +1,6 @@
 package com.nc.expense;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.group.Group;
 import com.nc.model.SplitType;
@@ -20,9 +21,10 @@ public class Expense {
     private Boolean status;
     @Enumerated(EnumType.STRING)
     private SplitType splitType;
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "expense")
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "expense", fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<ExpenseDetails> expenseDetails;
 }

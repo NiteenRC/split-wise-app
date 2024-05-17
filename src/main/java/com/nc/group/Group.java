@@ -21,9 +21,8 @@ public class Group {
     @JoinTable(name = "group_users",
             joinColumns = {@JoinColumn(name = "group_id")},
             inverseJoinColumns = {@JoinColumn(name = "user_id")})
-    //@JsonIgnore
     private List<User> users;
-    @OneToMany(mappedBy = "group")
+    @OneToMany(mappedBy = "group", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Expense> expenses;
 }
