@@ -4,8 +4,8 @@ import com.nc.group.Group;
 import com.nc.split.Split;
 import com.nc.split.SplitRepository;
 import com.nc.split.SplitService;
-import com.nc.transaction.Transaction;
-import com.nc.transaction.TransactionService;
+import com.nc.payment.Payment;
+import com.nc.payment.PaymentService;
 import com.nc.user.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ public class ExpenseService {
     @Autowired
     private ExpenseRepository expenseRepository;
     @Autowired
-    private TransactionService transactionService;
+    private PaymentService transactionService;
     @Autowired
     private SplitService splitService;
     @Autowired
@@ -43,26 +43,22 @@ public class ExpenseService {
         List<User> splitBetweenUsers = expense.getSplitBetweenUsers();
         double splitAmount = expense.getAmountPaid() / splitBetweenUsers.size();
 
-        // Create transaction records for each user
+        // Create Payment records for each user
         for (User user : splitBetweenUsers) {
-            Transaction transaction = new Transaction();
-            transaction.setUser(user);
+            Payment transaction = new Payment();
+            transaction.setPayerId(expense.getUser());
+            transaction.setPayeeId(user);
             transaction.setExpense(savedExpense);
-            transaction.setGroup(expense.getGroup());
 
             double splitAmountForUser = splitAmount;
             if (user.getId().equals(expense.getUser().getId())) {
-                transaction.setSplitAmount(expense.getAmountPaid() - splitAmount);
+                transaction.setAmount(expense.getAmountPaid() - splitAmount);
             } else {
                 splitAmountForUser = -1 * splitAmount;
-                transaction.setSplitAmount(splitAmountForUser);
+                transaction.setAmount(splitAmountForUser);
             }
             transactionService.saveOrUpdateTransaction(transaction);
-
-            // increase performance while fetching
-            //updateGroupSplit(expense.getGroup(), user, splitAmountForUser);
         }
-
         return savedExpense;
     }
 

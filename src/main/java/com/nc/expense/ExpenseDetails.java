@@ -11,11 +11,6 @@ public class ExpenseDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     @ManyToOne
-    private Expense expense;
-    @ManyToOne
-    private User userPaidBy;
-    @ManyToOne
-    private User userOweBy;
-    private Double expenseAmount;
+    private User payerId;
     private Double amountPaid;
 }

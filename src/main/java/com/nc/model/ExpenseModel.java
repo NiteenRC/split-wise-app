@@ -1,7 +1,7 @@
 package com.nc.model;
 
 import com.nc.group.Group;
-import com.nc.transaction.Transaction;
+import com.nc.payment.Payment;
 import com.nc.user.User;
 import lombok.Data;
 
@@ -17,6 +17,6 @@ public class ExpenseModel {
     private Boolean status;
     private User user;
     private List<User> splitBetweenUsers;
-    private Transaction transaction;
+    private Payment transaction;
     private Group group;
 }

@@ -17,7 +17,11 @@ public class Group {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     private String groupName;
-    @OneToMany(mappedBy = "group")
+    @ManyToMany(cascade = CascadeType.MERGE)
+    @JoinTable(name = "group_users",
+            joinColumns = {@JoinColumn(name = "group_id")},
+            inverseJoinColumns = {@JoinColumn(name = "user_id")})
+    //@JsonIgnore
     private List<User> users;
     @OneToMany(mappedBy = "group")
     @JsonIgnore

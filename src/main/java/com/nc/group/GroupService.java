@@ -11,7 +11,6 @@ import java.util.Optional;
 @Service
 @Transactional
 public class GroupService {
-
     @Autowired
     private GroupRepository groupRepository;
 
@@ -38,5 +37,13 @@ public class GroupService {
             groupRepository.save(grp1.get());
         }
         return grp1.get().getUsers();
+    }
+
+    public List<Group> getGroupByName(String groupName) {
+        return groupRepository.findByGroupName(groupName);
+    }
+
+    public List<Group> findAll() {
+        return groupRepository.findAll();
     }
 }

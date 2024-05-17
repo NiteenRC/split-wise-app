@@ -21,6 +21,18 @@ public class GroupController {
         return ResponseEntity.ok().body(group);
     }
 
+    @GetMapping("/groupName/{groupName}")
+    public ResponseEntity<?> getGroupByGrouName(@PathVariable String groupName) {
+        List<Group> group = groupService.getGroupByName(groupName);
+        return ResponseEntity.ok().body(group);
+    }
+
+    @GetMapping
+    public ResponseEntity<?> getAll() {
+        List<Group> group = groupService.findAll();
+        return ResponseEntity.ok().body(group);
+    }
+
     @PostMapping
     public ResponseEntity<Group> createGroup(@RequestBody Group group) {
         Group createdGroup = groupService.saveOrUpdateGroup(group);
