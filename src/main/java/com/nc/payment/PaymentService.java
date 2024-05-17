@@ -7,9 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @Transactional
@@ -40,7 +38,7 @@ public class PaymentService {
         List<PaymentDTO> totalExpenseByUser = new ArrayList<>();
 
         for (Payment expense : payments) {
-            String userName = expense.getPayerId().getUsername();
+            String userName = expense.getPayer().getUsername();
             Double expenseAmount = expense.getAmount();
 
             // Check if user exists in the list
@@ -68,12 +66,12 @@ public class PaymentService {
 
     public List<PaymentDTO> generateBalanceSheetForGroup(Long groupId) {
         List<User> users = groupRepository.findAllUsersById(groupId);
-        List<Payment> payments = paymentRepository.findByPayerIdInOrPayeeIdIn(users, users);
+        List<Payment> payments = paymentRepository.findByPayerInOrPayeeIn(users, users);
         List<PaymentDTO> balanceSheet = new ArrayList<>();
 
         for (Payment payment : payments) {
-            User payer = payment.getPayerId();
-            User payee = payment.getPayeeId();
+            User payer = payment.getPayer();
+            User payee = payment.getPayee();
             Double amount = payment.getAmount();
 
             if (users.contains(payer)) {

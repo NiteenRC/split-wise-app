@@ -1,5 +1,6 @@
-package com.nc.expense;
+package com.nc.expenseDetails;
 
+import com.nc.expense.Expense;
 import com.nc.user.User;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -11,6 +12,9 @@ public class ExpenseDetails {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     @ManyToOne
-    private User payerId;
+    @JoinColumn(name = "expense_id")
+    private Expense expense;
+    @ManyToOne
+    private User payer;
     private Double amountPaid;
 }

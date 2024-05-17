@@ -1,7 +1,8 @@
 package com.nc.expense;
 
+import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.group.Group;
-import com.nc.user.User;
+import com.nc.model.SplitType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -16,15 +17,12 @@ public class Expense {
     private String expenseName;
     private String expenseType;
     private Double expenseAmount;
-    private Double amountPaid;
     private Boolean status;
-    @ManyToOne
-    @JoinColumn(name = "user_id")
-    private User user;
-    @OneToMany
-    @JoinColumn(name = "user")
-    private List<User> splitBetweenUsers;
+    @Enumerated(EnumType.STRING)
+    private SplitType splitType;
     @ManyToOne
     @JoinColumn(name = "group_id")
     private Group group;
+    @OneToMany(cascade = CascadeType.ALL, mappedBy = "expense")
+    private List<ExpenseDetails> expenseDetails;
 }

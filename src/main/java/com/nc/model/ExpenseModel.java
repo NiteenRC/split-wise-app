@@ -1,7 +1,6 @@
 package com.nc.model;
 
-import com.nc.group.Group;
-import com.nc.payment.Payment;
+import com.nc.expense.Expense;
 import com.nc.user.User;
 import lombok.Data;
 
@@ -9,14 +8,8 @@ import java.util.List;
 
 @Data
 public class ExpenseModel {
-    private Integer id;
-    private String expenseName;
-    private String expenseType;
-    private Double expenseAmount;
+    private Expense expense;
     private Double amountPaid;
-    private Boolean status;
-    private User user;
+    private User payer;
     private List<User> splitBetweenUsers;
-    private Payment transaction;
-    private Group group;
 }

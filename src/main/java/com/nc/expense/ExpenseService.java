@@ -1,13 +1,17 @@
 package com.nc.expense;
 
+import com.nc.expenseDetails.ExpenseDetails;
+import com.nc.expenseDetails.ExpenseDetailsRepository;
 import com.nc.group.Group;
+import com.nc.model.ExpenseModel;
+import com.nc.model.SplitType;
+import com.nc.payment.Payment;
+import com.nc.payment.PaymentService;
 import com.nc.split.Split;
 import com.nc.split.SplitRepository;
 import com.nc.split.SplitService;
-import com.nc.payment.Payment;
-import com.nc.payment.PaymentService;
 import com.nc.user.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,15 +19,13 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 @Transactional
 public class ExpenseService {
-    @Autowired
     private ExpenseRepository expenseRepository;
-    @Autowired
-    private PaymentService transactionService;
-    @Autowired
+    private ExpenseDetailsRepository expenseDetailsRepository;
+    private PaymentService PaymentService;
     private SplitService splitService;
-    @Autowired
     private SplitRepository splitRepository;
 
     public List<Expense> getAllExpenses() {
@@ -34,32 +36,48 @@ public class ExpenseService {
         return expenseRepository.findById(id).orElse(null);
     }
 
-    public void deleteExpense(Long id) {
-        expenseRepository.deleteById(id);
+    public Expense saveOrUpdateExpense(ExpenseModel expenseModel) {
+        // Set split type - As of now it's default
+        expenseModel.getExpense().setSplitType(SplitType.EQUAL);
+        Expense savedExpense = expenseRepository.save(expenseModel.getExpense());
+
+        // Split the expense amount between users
+        splitExpenseAmongUsers(expenseModel);
+
+        // Save expense details
+        saveExpenseDetails(expenseModel, savedExpense);
+
+        return savedExpense;
     }
 
-    public Expense saveOrUpdateExpense(Expense expense) {
-        Expense savedExpense = expenseRepository.save(expense);
-        List<User> splitBetweenUsers = expense.getSplitBetweenUsers();
-        double splitAmount = expense.getAmountPaid() / splitBetweenUsers.size();
+    private void splitExpenseAmongUsers(ExpenseModel expenseModel) {
+        List<User> splitBetweenUsers = expenseModel.getSplitBetweenUsers();
+        double splitAmount = expenseModel.getAmountPaid() / splitBetweenUsers.size();
 
-        // Create Payment records for each user
         for (User user : splitBetweenUsers) {
-            Payment transaction = new Payment();
-            transaction.setPayerId(expense.getUser());
-            transaction.setPayeeId(user);
-            transaction.setExpense(savedExpense);
+            double splitAmountForUser = user.equals(expenseModel.getPayer()) ?
+                    expenseModel.getAmountPaid() - splitAmount :
+                    -splitAmount;
 
-            double splitAmountForUser = splitAmount;
-            if (user.getId().equals(expense.getUser().getId())) {
-                transaction.setAmount(expense.getAmountPaid() - splitAmount);
-            } else {
-                splitAmountForUser = -1 * splitAmount;
-                transaction.setAmount(splitAmountForUser);
-            }
-            transactionService.saveOrUpdateTransaction(transaction);
+            savePayment(expenseModel.getPayer(), user, splitAmountForUser, expenseModel.getExpense());
         }
-        return savedExpense;
+    }
+
+    private void savePayment(User payer, User payee, double amount, Expense expense) {
+        Payment Payment = new Payment();
+        Payment.setPayer(payer);
+        Payment.setPayee(payee);
+        Payment.setAmount(amount);
+        Payment.setExpense(expense);
+        PaymentService.saveOrUpdateTransaction(Payment);
+    }
+
+    private void saveExpenseDetails(ExpenseModel expenseModel, Expense savedExpense) {
+        ExpenseDetails expenseDetails = new ExpenseDetails();
+        expenseDetails.setExpense(savedExpense);
+        expenseDetails.setPayer(expenseModel.getPayer());
+        expenseDetails.setAmountPaid(expenseModel.getAmountPaid());
+        expenseDetailsRepository.save(expenseDetails);
     }
 
     private void updateGroupSplit(Group group, User user, double splitAmount) {

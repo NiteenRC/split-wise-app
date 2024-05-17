@@ -1,6 +1,5 @@
 package com.nc.user;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nc.group.Group;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -17,7 +16,7 @@ public class User {
     private String username;
     private String email;
     private String password;
-    @ManyToMany(cascade = CascadeType.MERGE,mappedBy = "users")
+    @ManyToMany(cascade = CascadeType.MERGE, mappedBy = "users")
     //@JsonIgnore
     private List<Group> userGroups;
 }

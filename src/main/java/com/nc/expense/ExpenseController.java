@@ -1,5 +1,6 @@
 package com.nc.expense;
 
+import com.nc.model.ExpenseModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,21 +20,9 @@ public class ExpenseController {
     }
 
     @PostMapping
-    public ResponseEntity<Expense> createExpense(@RequestBody Expense expense) {
-        Expense createdExpense = expenseService.saveOrUpdateExpense(expense);
+    public ResponseEntity<Expense> createExpense(@RequestBody ExpenseModel expenseModel) {
+        Expense createdExpense = expenseService.saveOrUpdateExpense(expenseModel);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdExpense);
-    }
-
-    @PutMapping
-    public ResponseEntity<Expense> updateExpense(@RequestBody Expense expenseDetails) {
-        Expense updatedExpense = expenseService.saveOrUpdateExpense(expenseDetails);
-        return ResponseEntity.ok().body(updatedExpense);
-    }
-
-    @DeleteMapping("/{expenseId}")
-    public ResponseEntity<?> deleteExpense(@PathVariable Long expenseId) {
-        expenseService.deleteExpense(expenseId);
-        return ResponseEntity.ok().build();
     }
 }
 

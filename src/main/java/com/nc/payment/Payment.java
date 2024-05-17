@@ -14,10 +14,10 @@ public class Payment {
     private Double amount;
     @ManyToOne
     @JoinColumn(name = "payer_id")
-    private User payerId;
+    private User payer;
     @ManyToOne
     @JoinColumn(name = "payee_id")
-    private User payeeId;
+    private User payee;
     @ManyToOne
     @JoinColumn(name = "expense_id")
     private Expense expense;
