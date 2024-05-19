@@ -1,0 +1,22 @@
+version: '3.1'
+
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql-container
+    environment:
+      MYSQL_ROOT_PASSWORD: Root@123
+    ports:
+      - "3306:3306"
+
+  spring-app:
+    image: split-wise-app:latest
+    container_name: split-wise-app
+    depends_on:
+      - mysql
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-container:3306/split-wise
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Root@123
+    ports:
+      - "8080:8080"

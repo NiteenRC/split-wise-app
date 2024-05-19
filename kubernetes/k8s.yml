@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: split-wise-app-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: split-wise-app-deployment
+  template:
+    metadata:
+      labels:
+        app: split-wise-app-deployment
+    spec:
+      containers:
+        - name: split-wise-app-deployment
+          image: 544180684050.dkr.ecr.us-east-2.amazonaws.com/split-wise-app
+          ports:
+            - containerPort: 8080
+        - name: mysql
+            image: mysql:latest
+            env:
+              - name: RDS_HOST
+                value: "10.100.98.196"
+              - name: RDS_PORT
+                value: "3306"
+              - name: RDS_DATABASE
+                value: split-wise
+              - name: RDS_USER
+                value: root
+              - name: RDS_PASSWORD
+                value: Root@123
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: split-wise-app-deployment-service
+spec:
+  selector:
+    app: split-wise-app-deployment
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: LoadBalancer
