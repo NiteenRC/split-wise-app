@@ -3,10 +3,7 @@ package com.nc.expense;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.expenseDetails.ExpenseDetailsRepository;
 import com.nc.group.Group;
-import com.nc.model.ExpenseDTO;
-import com.nc.model.ExpenseDtoConverter;
-import com.nc.model.ExpenseModel;
-import com.nc.model.SplitType;
+import com.nc.model.*;
 import com.nc.payment.Payment;
 import com.nc.payment.PaymentService;
 import com.nc.split.Split;
@@ -17,6 +14,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -25,23 +23,56 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Transactional
 public class ExpenseService {
-    private ExpenseRepository expenseRepository;
-    private ExpenseDetailsRepository expenseDetailsRepository;
-    private PaymentService paymentService;
-    private SplitService splitService;
-    private SplitRepository splitRepository;
+    private final ExpenseRepository expenseRepository;
+    private final ExpenseDetailsRepository expenseDetailsRepository;
+    private final PaymentService paymentService;
+    private final SplitService splitService;
+    private final SplitRepository splitRepository;
 
     public List<ExpenseDTO> getAllExpenses() {
-        return expenseRepository.findAll().stream().map(ExpenseDtoConverter::convertToDto).collect(Collectors.toList());
+        return expenseRepository.findAll().stream()
+                .map(ExpenseDtoConverter::convertToDto)
+                .collect(Collectors.toList());
     }
 
     public Expense getExpenseById(Long id) {
         return expenseRepository.findById(id).orElse(null);
     }
 
-    public Expense saveOrUpdateExpense(ExpenseModel expenseModel) {
-        // Set split type - As of now it's default
-        expenseModel.getExpense().setSplitType(SplitType.EQUAL);
+    public List<Expense> saveOrUpdateExpense(UserExpenseModel userExpenseModel, String type) {
+        double totalAmountPaid = userExpenseModel.getPayers().stream()
+                .mapToDouble(UserModel::getAmountPaid)
+                .sum();
+
+        if (totalAmountPaid != userExpenseModel.getExpenseModel().getExpense().getExpenseAmount()) {
+            throw new RuntimeException("Please pay the whole amount");
+        }
+
+        List<Expense> expenses = new ArrayList<>();
+        Expense expense = userExpenseModel.getExpenseModel().getExpense();
+
+        switch (type) {
+            case "EQUAL" -> {
+                expense.setSplitType(SplitType.EQUAL);
+                expenses.add(getExpenseForEqual(userExpenseModel));
+            }
+            case "NON_EQUAL" -> {
+                expense.setSplitType(SplitType.NON_EQUAL);
+                expenses = userExpenseModel.getPayers().stream()
+                        .map(userModel -> {
+                            userExpenseModel.getExpenseModel().setPayer(userModel.getPayer());
+                            userExpenseModel.getExpenseModel().setAmountPaid(userModel.getAmountPaid());
+                            return getExpenseForEqual(userExpenseModel);
+                        })
+                        .collect(Collectors.toList());
+            }
+            default -> throw new RuntimeException("SplitType not Valid");
+        }
+        return expenses;
+    }
+
+    private Expense getExpenseForEqual(UserExpenseModel userExpenseModel) {
+        ExpenseModel expenseModel = userExpenseModel.getExpenseModel();
         Expense savedExpense = expenseRepository.save(expenseModel.getExpense());
 
         // Split the expense amount between users
@@ -57,22 +88,28 @@ public class ExpenseService {
         List<User> splitBetweenUsers = expenseModel.getSplitBetweenUsers();
         double splitAmount = expenseModel.getAmountPaid() / splitBetweenUsers.size();
 
-        for (User user : splitBetweenUsers) {
-            double splitAmountForUser = user.equals(expenseModel.getPayer()) ?
-                    expenseModel.getAmountPaid() - splitAmount :
-                    -splitAmount;
-
-            savePayment(expenseModel.getPayer(), user, splitAmountForUser, expenseModel.getExpense());
-        }
+        splitBetweenUsers.stream()
+                .map(user -> new PaymentDetail(
+                        expenseModel.getPayer(),
+                        user,
+                        user.equals(expenseModel.getPayer()) ? expenseModel.getAmountPaid() - splitAmount : -splitAmount,
+                        expenseModel.getExpense()
+                ))
+                .forEach(paymentDetail -> savePayment(
+                        paymentDetail.payer(),
+                        paymentDetail.payee(),
+                        paymentDetail.amount(),
+                        paymentDetail.expense()
+                ));
     }
 
     private void savePayment(User payer, User payee, double amount, Expense expense) {
-        Payment Payment = new Payment();
-        Payment.setPayer(payer);
-        Payment.setPayee(payee);
-        Payment.setAmount(amount);
-        Payment.setExpense(expense);
-        paymentService.saveOrUpdateTransaction(Payment);
+        Payment payment = new Payment();
+        payment.setPayer(payer);
+        payment.setPayee(payee);
+        payment.setAmount(amount);
+        payment.setExpense(expense);
+        paymentService.saveOrUpdateTransaction(payment);
     }
 
     private void saveExpenseDetails(ExpenseModel expenseModel, Expense savedExpense) {
@@ -84,29 +121,22 @@ public class ExpenseService {
     }
 
     private void updateGroupSplit(Group group, User user, double splitAmount) {
-        // Find the existing split record for the user and group
         Optional<Split> existingSplitOptional = splitRepository.findByGroupAndUser(group, user);
 
-        Split splitToUpdate;
-        if (existingSplitOptional.isPresent()) {
-            // If a split record exists for the user in the group, update it
-            splitToUpdate = existingSplitOptional.get();
-        } else {
-            // If no split record exists for the user in the group, create a new one
-            splitToUpdate = new Split();
-            splitToUpdate.setGroup(group);
-            splitToUpdate.setUser(user);
-        }
+        Split splitToUpdate = existingSplitOptional.orElseGet(() -> {
+            Split newSplit = new Split();
+            newSplit.setGroup(group);
+            newSplit.setUser(user);
+            return newSplit;
+        });
 
-        // Update the split amount
-        double currentSplitAmount = splitToUpdate.getSplitAmount() == null ? 0 : splitToUpdate.getSplitAmount();
+        double currentSplitAmount = Optional.ofNullable(splitToUpdate.getSplitAmount()).orElse(0.0);
         double newSplitAmount = currentSplitAmount + splitAmount;
         splitToUpdate.setSplitAmount(newSplitAmount);
 
-        // Save or update the split record
         splitService.saveOrUpdateSplit(splitToUpdate);
     }
 
+    private record PaymentDetail(User payer, User payee, double amount, Expense expense) {
+    }
 }
-
-

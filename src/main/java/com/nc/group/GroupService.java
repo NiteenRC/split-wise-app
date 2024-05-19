@@ -1,18 +1,17 @@
 package com.nc.group;
 
 import com.nc.user.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 @Transactional
 public class GroupService {
-    @Autowired
-    private GroupRepository groupRepository;
+    private final GroupRepository groupRepository;
 
     public List<Group> getAllGroups() {
         return groupRepository.findAll();
@@ -30,13 +29,14 @@ public class GroupService {
         groupRepository.deleteById(id);
     }
 
-    public List<User> addUser(Long groupId, List<User> user) {
-        Optional<Group> grp1 = groupRepository.findById(groupId);
-        if (grp1.isPresent()) {
-            grp1.get().getUsers().addAll(user);
-            groupRepository.save(grp1.get());
-        }
-        return grp1.get().getUsers();
+    public List<User> addUser(Long groupId, List<User> users) {
+        return groupRepository.findById(groupId)
+                .map(group -> {
+                    group.getUsers().addAll(users);
+                    groupRepository.save(group);
+                    return group.getUsers();
+                })
+                .orElseThrow(() -> new RuntimeException("Group not found"));
     }
 
     public List<Group> getGroupByName(String groupName) {

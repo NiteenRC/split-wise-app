@@ -1,6 +1,5 @@
 package com.nc.group;
 
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nc.expense.Expense;
 import com.nc.user.User;

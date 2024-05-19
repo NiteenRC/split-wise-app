@@ -2,20 +2,20 @@ package com.nc.payment;
 
 import com.nc.group.GroupRepository;
 import com.nc.user.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
+@AllArgsConstructor
 @Transactional
 public class PaymentService {
-    @Autowired
-    private PaymentRepository paymentRepository;
-    @Autowired
-    private GroupRepository groupRepository;
+    private final PaymentRepository paymentRepository;
+    private final GroupRepository groupRepository;
 
     public List<Payment> getAllTransactions() {
         return paymentRepository.findAll();
@@ -34,28 +34,15 @@ public class PaymentService {
     }
 
     public List<PaymentDTO> getTotalExpenseByUserAndGroupName(String groupName) {
-        List<Payment> payments = null;//paymentRepository.findB(groupName);
+        // Assuming there is a method in paymentRepository to find payments by group name
+        List<Payment> payments = null;//paymentRepository.findByGroupName(groupName);
         List<PaymentDTO> totalExpenseByUser = new ArrayList<>();
 
-        for (Payment expense : payments) {
-            String userName = expense.getPayer().getUsername();
-            Double expenseAmount = expense.getAmount();
-
-            // Check if user exists in the list
-            PaymentDTO userExpenseDTO = totalExpenseByUser.stream()
-                    .filter(dto -> dto.getUsername().equals(userName))
-                    .findFirst()
-                    .orElse(null);
-
-            // If user doesn't exist in the list, create a new UserExpenseDTO
-            if (userExpenseDTO == null) {
-                userExpenseDTO = new PaymentDTO(userName, expenseAmount);
-                totalExpenseByUser.add(userExpenseDTO);
-            } else {
-                // If user already exists in the list, update the expense amount
-                userExpenseDTO.setTotalExpense(userExpenseDTO.getTotalExpense() + expenseAmount);
-            }
-        }
+        payments.stream()
+                .collect(Collectors.groupingBy(payment -> payment.getPayer().getUsername(),
+                        Collectors.summingDouble(Payment::getAmount)))
+                .forEach((userName, totalAmount) ->
+                        totalExpenseByUser.add(new PaymentDTO(userName, totalAmount)));
 
         return totalExpenseByUser;
     }
@@ -69,33 +56,21 @@ public class PaymentService {
         List<Payment> payments = paymentRepository.findByPayerInOrPayeeIn(users, users);
         List<PaymentDTO> balanceSheet = new ArrayList<>();
 
-        for (Payment payment : payments) {
-            User payer = payment.getPayer();
-            User payee = payment.getPayee();
-            Double amount = payment.getAmount();
-
-            if (users.contains(payer)) {
-                updateBalance(balanceSheet, payer.getUsername(), -amount);
-            }
-            if (users.contains(payee)) {
-                updateBalance(balanceSheet, payee.getUsername(), amount);
-            }
-        }
+        payments.forEach(payment -> {
+            updateBalance(balanceSheet, payment.getPayer().getUsername(), -payment.getAmount());
+            updateBalance(balanceSheet, payment.getPayee().getUsername(), payment.getAmount());
+        });
 
         return balanceSheet;
     }
 
     private void updateBalance(List<PaymentDTO> balanceSheet, String userName, Double amount) {
-        PaymentDTO entry = balanceSheet.stream()
+        balanceSheet.stream()
                 .filter(dto -> dto.getUsername().equals(userName))
                 .findFirst()
-                .orElse(null);
-
-        if (entry == null) {
-            entry = new PaymentDTO(userName, amount);
-            balanceSheet.add(entry);
-        } else {
-            entry.setTotalExpense(entry.getTotalExpense() + amount);
-        }
+                .ifPresentOrElse(
+                        entry -> entry.setTotalExpense(entry.getTotalExpense() + amount),
+                        () -> balanceSheet.add(new PaymentDTO(userName, amount))
+                );
     }
 }

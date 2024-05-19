@@ -1,6 +1,6 @@
 package com.nc.expense;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.group.Group;
 import com.nc.model.SplitType;
@@ -25,6 +25,6 @@ public class Expense {
     @JoinColumn(name = "group_id")
     private Group group;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "expense", fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @JsonIgnore
     private List<ExpenseDetails> expenseDetails;
 }

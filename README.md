@@ -9,9 +9,13 @@ Building and Pushing Docker Image
 
 ```bash
 docker build -t split-wise-app .
-docker images
 docker tag split-wise-app niteenjava/split-wise-app
 docker push niteenjava/split-wise-app
+
+docker images
+docker ps -a
+docker rmi <image-name>
+docker rm <container-name>
 ```
 
 ### AWS Setup
@@ -71,9 +75,22 @@ kubectl apply -f service.yml
 Verification
 
 ```bash
+kubectl config set-context --current --namespace=split-wise-namespace
 kubectl get deployment
 kubectl get pod
 kubectl logs <pod-name>
 kubectl describe pod <pod-name>
 kubectl get service
+```
+
+Delete the EKS cluster
+
+deleting the cluster takes some time to delete node groups and the cluster itself.
+
+```bash
+aws eks list-clusters
+aws eks list-nodegroups --cluster-name <your-cluster-name>
+aws eks delete-nodegroup --cluster-name <your-cluster-name> --nodegroup-name <your-nodegroup-name>
+aws eks delete-cluster --name <your-cluster-name>
+aws eks describe-cluster --name <your-cluster-name>
 ```
