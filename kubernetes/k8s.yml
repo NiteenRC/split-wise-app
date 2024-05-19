@@ -1,7 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: split-wise-namespace
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: split-wise-app-deployment
+  namespace: split-wise-namespace
 spec:
   replicas: 3
   selector:
@@ -14,28 +21,35 @@ spec:
     spec:
       containers:
         - name: split-wise-app-deployment
-          image: 544180684050.dkr.ecr.us-east-2.amazonaws.com/split-wise-app
+          image: niteenjava/split-wise-app:latest
           ports:
             - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: RDS_HOST
+              value: "database-1.ct2qmugo0eze.us-east-2.rds.amazonaws.com"
+            - name: RDS_PORT
+              value: "3306"
+            - name: RDS_DATABASE
+              value: "splitwise"
+            - name: RDS_USER
+              value: "root"
+            - name: RDS_PASSWORD
+              value: "password"
         - name: mysql
-            image: mysql:latest
-            env:
-              - name: RDS_HOST
-                value: "10.100.98.196"
-              - name: RDS_PORT
-                value: "3306"
-              - name: RDS_DATABASE
-                value: split-wise
-              - name: RDS_USER
-                value: root
-              - name: RDS_PASSWORD
-                value: Root@123
-
+          image: mysql:latest
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "password"
+            - name: MYSQL_DATABASE
+              value: "splitwise"
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: split-wise-app-deployment-service
+  namespace: split-wise-namespace
 spec:
   selector:
     app: split-wise-app-deployment
