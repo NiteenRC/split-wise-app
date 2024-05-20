@@ -1,5 +1,6 @@
 package com.nc.user;
 
+import com.nc.exception.NotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,13 +26,9 @@ public class UserService {
 
     public User authenticate(LoginUserDTO input) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        input.getEmail(),
-                        input.getPassword()
-                )
-        );
+                new UsernamePasswordAuthenticationToken(input.getEmail(), input.getPassword()));
 
         return userRepository.findByEmail(input.getEmail())
-                .orElseThrow();
+                .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }
