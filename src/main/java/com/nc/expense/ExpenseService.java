@@ -17,6 +17,7 @@ import com.nc.split.SplitService;
 import com.nc.user.User;
 import com.nc.user.UserRepository;
 import com.nc.user.UserRequest;
+import com.nc.utility.SecurityUtils;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,7 @@ public class ExpenseService {
     }
 
     public List<Expense> saveOrUpdate(ExpenseRequest expenseRequest) {
+        String currentUsername = SecurityUtils.getCurrentUsername();
         double totalAmountPaid = calculateTotalAmountPaid(expenseRequest);
 
         if (totalAmountPaid != expenseRequest.getExpenseAmount()) {

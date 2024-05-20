@@ -1,47 +1,34 @@
 package com.nc.user;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import com.nc.config.JwtService;
+import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/users")
+@AllArgsConstructor
+@RequestMapping("/auth")
 public class UserController {
+    private final JwtService jwtService;
+    private final UserService authenticationService;
 
-    @Autowired
-    private UserService userService;
-
-    @GetMapping("/{userId}")
-    public ResponseEntity<?> getUserById(@PathVariable Long userId) {
-        User user = userService.getUserById(userId);
-        return ResponseEntity.ok().body(user);
+    @PostMapping("/signup")
+    public ResponseEntity<User> register(@RequestBody RegisterUserDTO registerUserDto) {
+        User registeredUser = authenticationService.signup(registerUserDto);
+        return ResponseEntity.ok(registeredUser);
     }
 
-    @PostMapping
-    public ResponseEntity<?> createUser(@RequestBody User user) {
-        User createdUser = userService.saveOrUpdateUser(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
-    }
-
-    @PostMapping("/bulk")
-    public ResponseEntity<?> createUsers(@RequestBody List<User> users) {
-        List<User> createdUser = userService.saveOrUpdateUsers(users);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
-    }
-
-    @PutMapping
-    public ResponseEntity<?> updateUser(@RequestBody User user) {
-        User updatedUser = userService.saveOrUpdateUser(user);
-        return ResponseEntity.ok().body(updatedUser);
-    }
-
-    @DeleteMapping("/{userId}")
-    public ResponseEntity<?> deleteUser(@PathVariable Long userId) {
-        userService.deleteUser(userId);
-        return ResponseEntity.ok().build();
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> authenticate(@RequestBody LoginUserDTO loginUserDto) {
+        User authenticatedUser = authenticationService.authenticate(loginUserDto);
+        String jwtToken = jwtService.generateToken(authenticatedUser);
+        LoginResponse loginResponse = new LoginResponse();
+        loginResponse.setToken(jwtToken);
+        loginResponse.setExpiresIn(jwtService.getExpirationTime());
+        return ResponseEntity.ok(loginResponse);
     }
 }
 
