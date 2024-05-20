@@ -17,7 +17,6 @@ import com.nc.split.SplitService;
 import com.nc.user.User;
 import com.nc.user.UserRepository;
 import com.nc.user.UserRequest;
-import com.nc.utility.SplitType;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +31,7 @@ import java.util.Optional;
 @AllArgsConstructor
 @Transactional
 public class ExpenseService {
-
     private static final Logger logger = LoggerFactory.getLogger(ExpenseService.class);
-
     private final ExpenseRepository expenseRepository;
     private final ExpenseDetailsRepository expenseDetailsRepository;
     private final PaymentService paymentService;
@@ -59,34 +56,22 @@ public class ExpenseService {
     }
 
     public List<Expense> saveOrUpdate(ExpenseRequest expenseRequest) {
-        double totalAmountPaid = expenseRequest.getPayers().stream()
-                .mapToDouble(UserRequest::getUserAmountPaid)
-                .sum();
+        double totalAmountPaid = calculateTotalAmountPaid(expenseRequest);
 
         if (totalAmountPaid != expenseRequest.getExpenseAmount()) {
-            logger.error("Total amount paid {} does not match the expense amount {}"
-                    , totalAmountPaid, expenseRequest.getExpenseAmount());
+            logger.error("Total amount paid {} does not match the expense amount {}", totalAmountPaid, expenseRequest.getExpenseAmount());
             throw new CreationException("Expense amount should equal to the total users amount. " +
                     "i.e Expense amount: " + expenseRequest.getExpenseAmount() + " User amountPaid: " + totalAmountPaid);
         }
 
         List<Expense> expenses = new ArrayList<>();
-        Expense expense = new Expense();
 
-        switch (expenseRequest.getSplitType().name()) {
-            case "EQUAL" -> {
-                expense.setSplitType(SplitType.EQUAL);
-                expenses.add(getExpenseForEqual(expenseRequest));
+        switch (expenseRequest.getSplitType()) {
+            case EQUAL -> {
+                expenses.add(createEqualExpense(expenseRequest));
             }
-            case "NON_EQUAL" -> {
-                expense.setSplitType(SplitType.NON_EQUAL);
-                expenses = expenseRequest.getPayers().stream()
-                        .map(userModel -> {
-                            expenseRequest.setPayer(userModel.getPayer());
-                            expenseRequest.setUserAmountPaid(userModel.getUserAmountPaid());
-                            return getExpenseForEqual(expenseRequest);
-                        })
-                        .toList();
+            case NON_EQUAL -> {
+                expenses = createNonEqualExpenses(expenseRequest);
             }
             default -> {
                 logger.error("Invalid SplitType {}", expenseRequest.getSplitType());
@@ -96,24 +81,43 @@ public class ExpenseService {
         return expenses;
     }
 
-    private Expense getExpenseForEqual(ExpenseRequest expenseRequest) {
-        String expenseName = expenseRequest.getExpenseName().trim();
+    private double calculateTotalAmountPaid(ExpenseRequest expenseRequest) {
+        return expenseRequest.getPayers().stream()
+                .mapToDouble(UserRequest::getUserAmountPaid)
+                .sum();
+    }
+
+    private Expense createEqualExpense(ExpenseRequest expenseRequest) {
+        validateExpenseName(expenseRequest.getExpenseName());
+        Group group = validateAndGetGroup(expenseRequest.getGroupId(), expenseRequest.getSplitBetweenUserIds(), expenseRequest.getPayer());
+        Expense expense = createExpenseObject(expenseRequest, group);
+        Expense savedExpense = saveExpense(expense);
+        splitExpenseAmongUsers(expenseRequest, savedExpense);
+        saveExpenseDetails(expenseRequest, savedExpense);
+        return savedExpense;
+    }
+
+    private void validateExpenseName(String expenseName) {
         if (expenseRepository.existsByExpenseName(expenseName)) {
             logger.error("Expense with name {} already exists", expenseName);
             throw new ConflictException("Expense with name " + expenseName + " already exists");
         }
+    }
 
-        Optional<Group> groupOptional = groupRepository.findById(expenseRequest.getGroupId());
+    private Group validateAndGetGroup(Long groupId, List<Long> splitBetweenUserIds, Long payer) {
+        Optional<Group> groupOptional = groupRepository.findById(groupId);
         if (groupOptional.isEmpty()) {
-            logger.error("Group with ID {} not found", expenseRequest.getGroupId());
-            throw new NotFoundException("Group with ID " + expenseRequest.getGroupId() + " not found");
+            logger.error("Group with ID {} not found", groupId);
+            throw new NotFoundException("Group with ID " + groupId + " not found");
         }
-
         Group group = groupOptional.get();
-        List<Long> splitBetweenUsers = expenseRequest.getSplitBetweenUserIds();
-        List<Long> groupUserIds = group.getUsers().stream().map(User::getId).toList();
+        validateGroupUsers(group, splitBetweenUserIds, payer);
+        return group;
+    }
 
-        List<Long> invalidUserIds = splitBetweenUsers.stream()
+    private void validateGroupUsers(Group group, List<Long> splitBetweenUserIds, Long payer) {
+        List<Long> groupUserIds = group.getUsers().stream().map(User::getId).toList();
+        List<Long> invalidUserIds = splitBetweenUserIds.stream()
                 .filter(userId -> !groupUserIds.contains(userId))
                 .toList();
 
@@ -122,29 +126,42 @@ public class ExpenseService {
             throw new NotFoundException("Users with IDs " + invalidUserIds + " not part of the group with ID " + group.getId());
         }
 
+        boolean validUser = groupUserIds.contains(payer);
+        if (!validUser) {
+            logger.error("Users with IDs {} not part of the group ID {}", payer, group.getId());
+            throw new NotFoundException("Users with ID " + payer + " not part of the group with ID " + group.getId());
+        }
+    }
+
+    private Expense createExpenseObject(ExpenseRequest expenseRequest, Group group) {
         Expense expense = new Expense();
         expense.setExpenseName(expenseRequest.getExpenseName());
         expense.setExpenseAmount(expenseRequest.getExpenseAmount());
         expense.setExpenseType(expenseRequest.getExpenseType());
         expense.setSplitType(expenseRequest.getSplitType());
         expense.setGroup(group);
+        return expense;
+    }
 
-        Expense savedExpense;
+    private Expense saveExpense(Expense expense) {
         try {
-            savedExpense = expenseRepository.save(expense);
+            Expense savedExpense = expenseRepository.save(expense);
             logger.info("Expense with ID {} saved", savedExpense.getId());
+            return savedExpense;
         } catch (Exception e) {
             logger.error("Failed to create Expense: {}", e.getMessage());
             throw new CreationException("Failed to create new Expense " + e.getMessage());
         }
+    }
 
-        // Split the expense amount between users
-        splitExpenseAmongUsers(expenseRequest, savedExpense);
-
-        // Save expense details
-        saveExpenseDetails(expenseRequest, savedExpense);
-
-        return savedExpense;
+    private List<Expense> createNonEqualExpenses(ExpenseRequest expenseRequest) {
+        return expenseRequest.getPayers().stream()
+                .map(userModel -> {
+                    expenseRequest.setPayer(userModel.getPayer());
+                    expenseRequest.setUserAmountPaid(userModel.getUserAmountPaid());
+                    return createEqualExpense(expenseRequest);
+                })
+                .toList();
     }
 
     private void splitExpenseAmongUsers(ExpenseRequest expenseRequest, Expense expense) {
