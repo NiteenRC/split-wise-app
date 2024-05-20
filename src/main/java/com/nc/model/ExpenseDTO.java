@@ -6,12 +6,12 @@ import java.util.List;
 
 @Data
 public class ExpenseDTO {
-    private Integer id;
+    private Long id;
     private String expenseName;
     private String expenseType;
     private Double expenseAmount;
     private Boolean status;
     private String splitType;
-    private Integer groupId;
+    private Long groupId;
     private List<ExpenseDetailDTO> expenseDetails;
 }

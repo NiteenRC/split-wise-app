@@ -21,12 +21,6 @@ public class GroupController {
         return ResponseEntity.ok().body(group);
     }
 
-    @GetMapping("/groupName/{groupName}")
-    public ResponseEntity<?> getGroupByGrouName(@PathVariable String groupName) {
-        List<Group> group = groupService.getGroupByName(groupName);
-        return ResponseEntity.ok().body(group);
-    }
-
     @GetMapping
     public ResponseEntity<?> getAll() {
         List<Group> group = groupService.findAll();
@@ -34,14 +28,14 @@ public class GroupController {
     }
 
     @PostMapping
-    public ResponseEntity<Group> createGroup(@RequestBody Group group) {
-        Group createdGroup = groupService.saveOrUpdateGroup(group);
+    public ResponseEntity<Group> createGroup(@RequestBody GroupRequest groupRequest) {
+        Group createdGroup = groupService.saveOrUpdate(groupRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdGroup);
     }
 
-    @PutMapping
-    public ResponseEntity<Group> updateGroup(@RequestBody Group group) {
-        Group updatedGroup = groupService.saveOrUpdateGroup(group);
+    @PutMapping("/{groupId}")
+    public ResponseEntity<Group> updateGroup(@PathVariable Long groupId, @RequestBody GroupRequest groupRequest) {
+        Group updatedGroup = groupService.update(groupId, groupRequest);
         return ResponseEntity.ok().body(updatedGroup);
     }
 
@@ -51,9 +45,9 @@ public class GroupController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/adduser/{id}")
-    public ResponseEntity<?> addUser(@PathVariable("id") Long GrpId, @RequestBody List<User> user) {
-        return ResponseEntity.ok().body(groupService.addUser(GrpId, user));
+    @PostMapping("/adduser/{groupId}")
+    public ResponseEntity<?> addUser(@PathVariable("groupId") Long groupId, @RequestBody List<User> user) {
+        return ResponseEntity.ok().body(groupService.addUser(groupId, user));
     }
 }
 

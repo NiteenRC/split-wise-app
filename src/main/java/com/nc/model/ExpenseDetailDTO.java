@@ -4,8 +4,8 @@ import lombok.Data;
 
 @Data
 public class ExpenseDetailDTO {
-    private Integer id;
-    private Integer expenseId;
-    private Integer payerId;
+    private Long id;
+    private Long expenseId;
+    private Long payerId;
     private Double amountPaid;
 }

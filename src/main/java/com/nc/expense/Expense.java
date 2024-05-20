@@ -3,7 +3,7 @@ package com.nc.expense;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.group.Group;
-import com.nc.model.SplitType;
+import com.nc.utility.SplitType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -14,7 +14,7 @@ import java.util.List;
 public class Expense {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
     private String expenseName;
     private String expenseType;
     private Double expenseAmount;

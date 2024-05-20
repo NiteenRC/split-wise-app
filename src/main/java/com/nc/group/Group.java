@@ -14,7 +14,7 @@ import java.util.List;
 public class Group {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
     private String groupName;
     @ManyToMany(cascade = CascadeType.MERGE)
     @JoinTable(name = "group_users",

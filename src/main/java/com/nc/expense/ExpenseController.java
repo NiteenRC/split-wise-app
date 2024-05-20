@@ -1,7 +1,7 @@
 package com.nc.expense;
 
 import com.nc.model.ExpenseDTO;
-import com.nc.model.UserExpenseModel;
+import com.nc.utility.HttpResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,9 +29,10 @@ public class ExpenseController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createExpense(@RequestParam("splitType") String splitType, @RequestBody UserExpenseModel userExpenseModel) {
-        List<Expense> createdExpense = expenseService.saveOrUpdateExpense(userExpenseModel, splitType);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdExpense);
+    public ResponseEntity<?> createExpense(@RequestBody ExpenseRequest expenseRequest) {
+        List<Expense> createdExpenses = expenseService.saveOrUpdate(expenseRequest);
+        HttpResponse response = new HttpResponse("success", createdExpenses, "Expense created successfully");
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
 

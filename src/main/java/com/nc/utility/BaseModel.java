@@ -1,4 +1,4 @@
-package com.nc.model;
+package com.nc.utility;
 
 import jakarta.persistence.*;
 import lombok.Data;

@@ -1,4 +1,4 @@
-package com.nc.model;
+package com.nc.utility;
 
 public enum SplitType {
     EQUAL,
