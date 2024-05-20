@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -48,7 +47,7 @@ public class ExpenseService {
         logger.info("Fetching all expenses");
         return expenseRepository.findAll().stream()
                 .map(ExpenseDtoConverter::convertToDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Expense getExpenseById(Long id) {
@@ -65,9 +64,10 @@ public class ExpenseService {
                 .sum();
 
         if (totalAmountPaid != expenseRequest.getExpenseAmount()) {
-            logger.error("Total amount paid {} does not match the expense amount {}", totalAmountPaid, expenseRequest.getExpenseAmount());
-            throw new CreationException("Expense amount should equals to the total users amount. i.e Expense amount:"
-                    + expenseRequest.getExpenseAmount() + " User amountPaid:" + totalAmountPaid);
+            logger.error("Total amount paid {} does not match the expense amount {}"
+                    , totalAmountPaid, expenseRequest.getExpenseAmount());
+            throw new CreationException("Expense amount should equal to the total users amount. " +
+                    "i.e Expense amount: " + expenseRequest.getExpenseAmount() + " User amountPaid: " + totalAmountPaid);
         }
 
         List<Expense> expenses = new ArrayList<>();
@@ -86,7 +86,7 @@ public class ExpenseService {
                             expenseRequest.setUserAmountPaid(userModel.getUserAmountPaid());
                             return getExpenseForEqual(expenseRequest);
                         })
-                        .collect(Collectors.toList());
+                        .toList();
             }
             default -> {
                 logger.error("Invalid SplitType {}", expenseRequest.getSplitType());
@@ -104,10 +104,22 @@ public class ExpenseService {
         }
 
         Optional<Group> groupOptional = groupRepository.findById(expenseRequest.getGroupId());
-
         if (groupOptional.isEmpty()) {
             logger.error("Group with ID {} not found", expenseRequest.getGroupId());
             throw new NotFoundException("Group with ID " + expenseRequest.getGroupId() + " not found");
+        }
+
+        Group group = groupOptional.get();
+        List<Long> splitBetweenUsers = expenseRequest.getSplitBetweenUserIds();
+        List<Long> groupUserIds = group.getUsers().stream().map(User::getId).toList();
+
+        List<Long> invalidUserIds = splitBetweenUsers.stream()
+                .filter(userId -> !groupUserIds.contains(userId))
+                .toList();
+
+        if (!invalidUserIds.isEmpty()) {
+            logger.error("Users with IDs {} not part of the group ID {}", invalidUserIds, group.getId());
+            throw new NotFoundException("Users with IDs " + invalidUserIds + " not part of the group with ID " + group.getId());
         }
 
         Expense expense = new Expense();
@@ -115,7 +127,7 @@ public class ExpenseService {
         expense.setExpenseAmount(expenseRequest.getExpenseAmount());
         expense.setExpenseType(expenseRequest.getExpenseType());
         expense.setSplitType(expenseRequest.getSplitType());
-        expense.setGroup(groupOptional.get());
+        expense.setGroup(group);
 
         Expense savedExpense;
         try {

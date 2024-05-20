@@ -51,7 +51,7 @@ public class GroupService {
                             logger.error("User with ID {} not found", userId);
                             return new NotFoundException("User with ID " + userId + " not found");
                         }))
-                .collect(Collectors.toList());
+                .toList();
 
         Group group = new Group();
         group.setGroupName(groupName);
@@ -114,7 +114,7 @@ public class GroupService {
                             logger.error("User with ID {} not found", userId);
                             return new NotFoundException("User with ID " + userId + " not found");
                         }))
-                .collect(Collectors.toList());
+                .toList();
 
         group.setUsers(users);
         Group updatedGroup = groupRepository.save(group);

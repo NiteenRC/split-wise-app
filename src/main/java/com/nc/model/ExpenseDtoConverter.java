@@ -21,7 +21,7 @@ public class ExpenseDtoConverter {
         dto.setGroupId(expense.getGroup().getId());
         List<ExpenseDetailDTO> detailDTOs = expense.getExpenseDetails().stream()
                 .map(ExpenseDtoConverter::convertDetailToDto)
-                .collect(Collectors.toList());
+                .toList();
         dto.setExpenseDetails(detailDTOs);
         return dto;
     }
