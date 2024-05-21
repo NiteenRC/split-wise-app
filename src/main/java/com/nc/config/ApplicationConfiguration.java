@@ -1,6 +1,6 @@
 package com.nc.config;
 
-import com.nc.exception.NotFoundException;
+import com.nc.exception.UnauthorizedException;
 import com.nc.user.UserRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -19,8 +19,8 @@ public class ApplicationConfiguration {
 
     @Bean
     UserDetailsService userDetailsService() {
-        return username -> userRepository.findByEmail(username)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+        return username -> userRepository.findByUsername(username)
+                .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
     }
 
     @Bean

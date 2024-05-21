@@ -1,7 +1,7 @@
 package com.nc.group;
 
-import com.nc.exception.ConflictException;
 import com.nc.exception.CreationException;
+import com.nc.exception.DuplicateException;
 import com.nc.exception.NotFoundException;
 import com.nc.user.User;
 import com.nc.user.UserRepository;
@@ -41,7 +41,7 @@ public class GroupService {
         String groupName = groupRequest.getGroupName().trim();
         if (groupRepository.existsByGroupName(groupName)) {
             logger.error("Group with name {} already exists", groupName);
-            throw new ConflictException("Group with name " + groupName + " already exists");
+            throw new DuplicateException("Group with name " + groupName + " already exists");
         }
 
         List<User> users = groupRequest.getUserIds().stream()

@@ -1,7 +1,7 @@
 package com.nc.expense;
 
-import com.nc.exception.ConflictException;
 import com.nc.exception.CreationException;
+import com.nc.exception.DuplicateException;
 import com.nc.exception.NotFoundException;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.expenseDetails.ExpenseDetailsRepository;
@@ -16,8 +16,7 @@ import com.nc.split.SplitRepository;
 import com.nc.split.SplitService;
 import com.nc.user.User;
 import com.nc.user.UserRepository;
-import com.nc.user.UserRequest;
-import com.nc.utility.SecurityUtils;
+import com.nc.utility.UserContext;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,52 +56,101 @@ public class ExpenseService {
     }
 
     public List<Expense> saveOrUpdate(ExpenseRequest expenseRequest) {
-        String currentUsername = SecurityUtils.getCurrentUsername();
-        double totalAmountPaid = calculateTotalAmountPaid(expenseRequest);
-
-        if (totalAmountPaid != expenseRequest.getExpenseAmount()) {
-            logger.error("Total amount paid {} does not match the expense amount {}", totalAmountPaid, expenseRequest.getExpenseAmount());
-            throw new CreationException("Expense amount should equal to the total users amount. " +
-                    "i.e Expense amount: " + expenseRequest.getExpenseAmount() + " User amountPaid: " + totalAmountPaid);
-        }
-
+        User user = validateAndGetUser();
+        expenseRequest.setPayer(user.getId());
         List<Expense> expenses = new ArrayList<>();
 
         switch (expenseRequest.getSplitType()) {
             case EQUAL -> {
-                expenses.add(createEqualExpense(expenseRequest));
+                if (expenseRequest.getUserAmountPaid() != expenseRequest.getExpenseAmount()) {
+                    logger.info("Amount paid must equals to expense amount. " +
+                            "User needs to pay: {}", expenseRequest.getExpenseAmount());
+                    throw new CreationException("Amount paid must equals to expense amount. " +
+                            "User needs to pay: " + (expenseRequest.getExpenseAmount()));
+                }
+                Expense expense = saveExpense(expenseRequest);
+                expenses.add(expense);
             }
             case NON_EQUAL -> {
-                expenses = createNonEqualExpenses(expenseRequest);
+                Expense expense = handleNonEqualSplit(expenseRequest);
+                expenses.add(expense);
             }
             default -> {
                 logger.error("Invalid SplitType {}", expenseRequest.getSplitType());
                 throw new RuntimeException("SplitType not Valid");
             }
         }
+
+        Expense expense = expenses.get(0);
+        splitExpenseAmongUsers(expenseRequest, expense);
+        saveExpenseDetails(expenseRequest, expense);
+
         return expenses;
     }
 
-    private double calculateTotalAmountPaid(ExpenseRequest expenseRequest) {
-        return expenseRequest.getPayers().stream()
-                .mapToDouble(UserRequest::getUserAmountPaid)
-                .sum();
+    private User validateAndGetUser() {
+        String username = UserContext.currentUsername();
+        return userRepository
+                .findByUsername(username)
+                .orElseThrow(() -> {
+                    logger.error("User with name {} not found", username);
+                    return new NotFoundException("User with name " + username + " not found");
+                });
     }
 
-    private Expense createEqualExpense(ExpenseRequest expenseRequest) {
+    private Expense saveExpense(ExpenseRequest expenseRequest) {
         validateExpenseName(expenseRequest.getExpenseName());
         Group group = validateAndGetGroup(expenseRequest.getGroupId(), expenseRequest.getSplitBetweenUserIds(), expenseRequest.getPayer());
-        Expense expense = createExpenseObject(expenseRequest, group);
-        Expense savedExpense = saveExpense(expense);
-        splitExpenseAmongUsers(expenseRequest, savedExpense);
-        saveExpenseDetails(expenseRequest, savedExpense);
-        return savedExpense;
+        Expense expenseObject = createExpenseObject(expenseRequest, group);
+        return saveExpense(expenseObject);
     }
+
+    /**
+     * private Expense handleNonEqualSplit(ExpenseRequest expenseRequest) {
+     * Optional<Expense> optionalExpense = expenseRepository
+     * .findByExpenseNameAndSplitType(expenseRequest.getExpenseName(), expenseRequest.getSplitType());
+     * <p>
+     * List<ExpenseDetails> expenseDetails = expenseDetailsRepository.findByExpense(optionalExpense.get());
+     * double totalAmountPaid = expenseDetails.stream().mapToDouble(ExpenseDetails::getAmountPaid).sum();
+     * <p>
+     * if (totalAmountPaid + expenseRequest.getUserAmountPaid() > optionalExpense.get().getExpenseAmount()) {
+     * throw new CreationException("Amount paid is exceeds the expense amount");
+     * }
+     * <p>
+     * return optionalExpense.orElseGet(() -> saveExpense(expenseRequest));
+     * }
+     */
+
+    private Expense handleNonEqualSplit(ExpenseRequest expenseRequest) {
+        logger.info("Handling non-equal split for expense: {}", expenseRequest.getExpenseName());
+
+        Optional<Expense> optionalExpense = expenseRepository
+                .findByExpenseNameAndSplitType(expenseRequest.getExpenseName(), expenseRequest.getSplitType());
+
+        if (optionalExpense.isEmpty()) {
+            return saveExpense(expenseRequest);
+        } else {
+            Expense expense = optionalExpense.get();
+            List<ExpenseDetails> expenseDetails = expenseDetailsRepository.findByExpense(expense);
+            double totalAmountPaid = expenseDetails.stream().mapToDouble(ExpenseDetails::getAmountPaid).sum();
+
+            logger.info("Total amount paid so far for expense {}: {}", expenseRequest.getExpenseName(), totalAmountPaid);
+
+            if (totalAmountPaid + expenseRequest.getUserAmountPaid() > expense.getExpenseAmount()) {
+                logger.info("Amount paid exceeds the expense amount. " +
+                        "User needs to pay: {}", expense.getExpenseAmount() - totalAmountPaid);
+                throw new CreationException("Amount paid exceeds the expense amount. " +
+                        "User needs to pay: " + (expense.getExpenseAmount() - totalAmountPaid));
+            }
+            return expense;
+        }
+    }
+
 
     private void validateExpenseName(String expenseName) {
         if (expenseRepository.existsByExpenseName(expenseName)) {
             logger.error("Expense with name {} already exists", expenseName);
-            throw new ConflictException("Expense with name " + expenseName + " already exists");
+            throw new DuplicateException("Expense with name " + expenseName + " already exists");
         }
     }
 
@@ -154,16 +202,6 @@ public class ExpenseService {
             logger.error("Failed to create Expense: {}", e.getMessage());
             throw new CreationException("Failed to create new Expense " + e.getMessage());
         }
-    }
-
-    private List<Expense> createNonEqualExpenses(ExpenseRequest expenseRequest) {
-        return expenseRequest.getPayers().stream()
-                .map(userModel -> {
-                    expenseRequest.setPayer(userModel.getPayer());
-                    expenseRequest.setUserAmountPaid(userModel.getUserAmountPaid());
-                    return createEqualExpense(expenseRequest);
-                })
-                .toList();
     }
 
     private void splitExpenseAmongUsers(ExpenseRequest expenseRequest, Expense expense) {
