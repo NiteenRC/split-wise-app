@@ -20,6 +20,12 @@ import java.util.List;
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfiguration {
+    private static final String[] AUTH_WHITELIST = {
+            "/auth/**",
+            "/swagger-ui/**",
+            "/v3/api-docs/**",
+            "/swagger-ui.html"
+    };
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthenticationProvider authenticationProvider;
 
@@ -30,7 +36,7 @@ public class SecurityConfiguration {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(AUTH_WHITELIST).permitAll()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider)

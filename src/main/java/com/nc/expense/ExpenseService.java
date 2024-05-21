@@ -10,6 +10,7 @@ import com.nc.group.GroupRepository;
 import com.nc.model.ExpenseDTO;
 import com.nc.model.ExpenseDtoConverter;
 import com.nc.payment.Payment;
+import com.nc.payment.PaymentRepository;
 import com.nc.payment.PaymentService;
 import com.nc.split.Split;
 import com.nc.split.SplitRepository;
@@ -39,6 +40,7 @@ public class ExpenseService {
     private final SplitRepository splitRepository;
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
 
     public List<ExpenseDTO> getAllExpenses() {
         logger.info("Fetching all expenses");
@@ -63,10 +65,8 @@ public class ExpenseService {
         switch (expenseRequest.getSplitType()) {
             case EQUAL -> {
                 if (expenseRequest.getUserAmountPaid() != expenseRequest.getExpenseAmount()) {
-                    logger.info("Amount paid must equals to expense amount. " +
-                            "User needs to pay: {}", expenseRequest.getExpenseAmount());
-                    throw new CreationException("Amount paid must equals to expense amount. " +
-                            "User needs to pay: " + (expenseRequest.getExpenseAmount()));
+                    logger.error("Amount paid must equal to expense amount. User needs to pay: {}", expenseRequest.getExpenseAmount());
+                    throw new CreationException("Amount paid must equal to expense amount. User needs to pay: " + expenseRequest.getExpenseAmount());
                 }
                 Expense expense = saveExpense(expenseRequest);
                 expenses.add(expense);
@@ -77,7 +77,7 @@ public class ExpenseService {
             }
             default -> {
                 logger.error("Invalid SplitType {}", expenseRequest.getSplitType());
-                throw new RuntimeException("SplitType not Valid");
+                throw new RuntimeException("SplitType not valid");
             }
         }
 
@@ -90,8 +90,8 @@ public class ExpenseService {
 
     private User validateAndGetUser() {
         String username = UserContext.currentUsername();
-        return userRepository
-                .findByUsername(username)
+        logger.info("Validating user with username: {}", username);
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> {
                     logger.error("User with name {} not found", username);
                     return new NotFoundException("User with name " + username + " not found");
@@ -105,22 +105,6 @@ public class ExpenseService {
         return saveExpense(expenseObject);
     }
 
-    /**
-     * private Expense handleNonEqualSplit(ExpenseRequest expenseRequest) {
-     * Optional<Expense> optionalExpense = expenseRepository
-     * .findByExpenseNameAndSplitType(expenseRequest.getExpenseName(), expenseRequest.getSplitType());
-     * <p>
-     * List<ExpenseDetails> expenseDetails = expenseDetailsRepository.findByExpense(optionalExpense.get());
-     * double totalAmountPaid = expenseDetails.stream().mapToDouble(ExpenseDetails::getAmountPaid).sum();
-     * <p>
-     * if (totalAmountPaid + expenseRequest.getUserAmountPaid() > optionalExpense.get().getExpenseAmount()) {
-     * throw new CreationException("Amount paid is exceeds the expense amount");
-     * }
-     * <p>
-     * return optionalExpense.orElseGet(() -> saveExpense(expenseRequest));
-     * }
-     */
-
     private Expense handleNonEqualSplit(ExpenseRequest expenseRequest) {
         logger.info("Handling non-equal split for expense: {}", expenseRequest.getExpenseName());
 
@@ -128,6 +112,7 @@ public class ExpenseService {
                 .findByExpenseNameAndSplitType(expenseRequest.getExpenseName(), expenseRequest.getSplitType());
 
         if (optionalExpense.isEmpty()) {
+            logger.info("Expense with name {} and split type {} not found, creating a new one", expenseRequest.getExpenseName(), expenseRequest.getSplitType());
             return saveExpense(expenseRequest);
         } else {
             Expense expense = optionalExpense.get();
@@ -137,15 +122,12 @@ public class ExpenseService {
             logger.info("Total amount paid so far for expense {}: {}", expenseRequest.getExpenseName(), totalAmountPaid);
 
             if (totalAmountPaid + expenseRequest.getUserAmountPaid() > expense.getExpenseAmount()) {
-                logger.info("Amount paid exceeds the expense amount. " +
-                        "User needs to pay: {}", expense.getExpenseAmount() - totalAmountPaid);
-                throw new CreationException("Amount paid exceeds the expense amount. " +
-                        "User needs to pay: " + (expense.getExpenseAmount() - totalAmountPaid));
+                logger.error("Amount paid exceeds the expense amount. User needs to pay: {}", expense.getExpenseAmount() - totalAmountPaid);
+                throw new CreationException("Amount paid exceeds the expense amount. User needs to pay: " + (expense.getExpenseAmount() - totalAmountPaid));
             }
             return expense;
         }
     }
-
 
     private void validateExpenseName(String expenseName) {
         if (expenseRepository.existsByExpenseName(expenseName)) {
@@ -155,6 +137,7 @@ public class ExpenseService {
     }
 
     private Group validateAndGetGroup(Long groupId, List<Long> splitBetweenUserIds, Long payer) {
+        logger.info("Validating group with ID: {}", groupId);
         Optional<Group> groupOptional = groupRepository.findById(groupId);
         if (groupOptional.isEmpty()) {
             logger.error("Group with ID {} not found", groupId);
@@ -176,10 +159,9 @@ public class ExpenseService {
             throw new NotFoundException("Users with IDs " + invalidUserIds + " not part of the group with ID " + group.getId());
         }
 
-        boolean validUser = groupUserIds.contains(payer);
-        if (!validUser) {
-            logger.error("Users with IDs {} not part of the group ID {}", payer, group.getId());
-            throw new NotFoundException("Users with ID " + payer + " not part of the group with ID " + group.getId());
+        if (!groupUserIds.contains(payer)) {
+            logger.error("Payer with ID {} not part of the group ID {}", payer, group.getId());
+            throw new NotFoundException("Payer with ID " + payer + " not part of the group with ID " + group.getId());
         }
     }
 
@@ -190,6 +172,7 @@ public class ExpenseService {
         expense.setExpenseType(expenseRequest.getExpenseType());
         expense.setSplitType(expenseRequest.getSplitType());
         expense.setGroup(group);
+        logger.info("Created expense object for expense: {}", expenseRequest.getExpenseName());
         return expense;
     }
 
@@ -242,6 +225,7 @@ public class ExpenseService {
         payment.setPayee(payeeOptional.get());
         payment.setAmount(amount);
         payment.setExpense(expense);
+        payment.setGroup(expense.getGroup());
         paymentService.saveOrUpdateTransaction(payment);
         logger.info("Payment from payer ID {} to payee ID {} of amount {} saved", payerId, payeeId, amount);
     }

@@ -16,4 +16,10 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
     List<User> findAllUsersById(@Param("groupId") Long groupId);
 
     boolean existsByGroupName(String name);
+
+    @Query(value = "SELECT g.id FROM `group` g " +
+            "JOIN group_users gu ON g.id = gu.group_id " +
+            "JOIN user u ON u.id = gu.user_id " +
+            "WHERE u.username = :username", nativeQuery = true)
+    List<Long> findGroupIdsByUserId(@Param("username") String username);
 }

@@ -1,6 +1,7 @@
 package com.nc.payment;
 
 import com.nc.expense.Expense;
+import com.nc.group.Group;
 import com.nc.user.User;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -21,4 +22,7 @@ public class Payment {
     @ManyToOne
     @JoinColumn(name = "expense_id")
     private Expense expense;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
 }

@@ -1,76 +1,71 @@
 package com.nc.payment;
 
 import com.nc.group.GroupRepository;
-import com.nc.user.User;
+import com.nc.utility.UserContext;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 @Transactional
 public class PaymentService {
+    private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
     private final PaymentRepository paymentRepository;
     private final GroupRepository groupRepository;
 
     public List<Payment> getAllTransactions() {
+        logger.info("Fetching all transactions");
         return paymentRepository.findAll();
     }
 
     public Payment getTransactionById(Long id) {
+        logger.info("Fetching transaction with ID {}", id);
         return paymentRepository.findById(id).orElse(null);
     }
 
     public Payment saveOrUpdateTransaction(Payment payment) {
+        logger.info("Saving/updating transaction for payment with amount {}", payment.getAmount());
         return paymentRepository.save(payment);
     }
 
     public void deleteTransaction(Long id) {
+        logger.info("Deleting transaction with ID {}", id);
         paymentRepository.deleteById(id);
     }
 
-    public List<PaymentDTO> getTotalExpenseByUserAndGroupName(String groupName) {
-        // Assuming there is a method in paymentRepository to find payments by group name
-        List<Payment> payments = null;//paymentRepository.findByGroupName(groupName);
-        List<PaymentDTO> totalExpenseByUser = new ArrayList<>();
+    public List<PaymentSummary> getPaymentSummaries() {
+        logger.info("Generating payment summaries");
+        String username = UserContext.currentUsername();
+        List<Payment> payments = paymentRepository.findAllPaymentsByUserUsername(username);
 
-        payments.stream()
-                .collect(Collectors.groupingBy(payment -> payment.getPayer().getUsername(),
-                        Collectors.summingDouble(Payment::getAmount)))
-                .forEach((userName, totalAmount) ->
-                        totalExpenseByUser.add(new PaymentDTO(userName, totalAmount)));
+        Map<String, Map<String, Double>> totalAmountsByExpenseAndUser = calculateTotalAmountsByExpenseAndUser(payments);
 
-        return totalExpenseByUser;
+        return totalAmountsByExpenseAndUser.entrySet().stream()
+                .map(entry -> {
+                    String expenseName = entry.getKey();
+                    List<PaymentDTO> users = entry.getValue().entrySet().stream()
+                            .map(userEntry -> new PaymentDTO(userEntry.getKey(), userEntry.getValue()))
+                            .toList();
+                    return new PaymentSummary(expenseName, users);
+                })
+                .toList();
     }
 
-    public List<Payment> getExpenseByName(String expenseName) {
-        return paymentRepository.findByExpenseExpenseName(expenseName);
-    }
-
-    public List<PaymentDTO> generateBalanceSheetForGroup(Long groupId) {
-        List<User> users = groupRepository.findAllUsersById(groupId);
-        List<Payment> payments = paymentRepository.findByPayerInOrPayeeIn(users, users);
-        List<PaymentDTO> balanceSheet = new ArrayList<>();
-
-        payments.forEach(payment -> {
-            updateBalance(balanceSheet, payment.getPayer().getUsername(), -payment.getAmount());
-            updateBalance(balanceSheet, payment.getPayee().getUsername(), payment.getAmount());
-        });
-
-        return balanceSheet;
-    }
-
-    private void updateBalance(List<PaymentDTO> balanceSheet, String userName, Double amount) {
-        balanceSheet.stream()
-                .filter(dto -> dto.getUsername().equals(userName))
-                .findFirst()
-                .ifPresentOrElse(
-                        entry -> entry.setTotalExpense(entry.getTotalExpense() + amount),
-                        () -> balanceSheet.add(new PaymentDTO(userName, amount))
-                );
+    private Map<String, Map<String, Double>> calculateTotalAmountsByExpenseAndUser(List<Payment> payments) {
+        return payments.stream()
+                .collect(Collectors.groupingBy(
+                        payment -> payment.getExpense().getExpenseName(), // Group by expense name
+                        Collectors.groupingBy( // Further group by username within each expense name group
+                                payment -> payment.getPayee().getUsername(),
+                                Collectors.summingDouble(Payment::getAmount) // Calculate sum of amounts for each user
+                        )
+                ));
     }
 }
