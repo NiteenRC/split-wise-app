@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -67,5 +68,24 @@ public class PaymentService {
                                 Collectors.summingDouble(Payment::getAmount) // Calculate sum of amounts for each user
                         )
                 ));
+    }
+
+    public BalanceSheetDTO getGroupBalanceSheet() {
+        String username = UserContext.currentUsername();
+        List<Payment> payments = paymentRepository.findAllPaymentsByUserUsername(username);
+
+        Map<String, Double> owesAmount = new HashMap<>();
+        Map<String, Double> needToPay = new HashMap<>();
+
+        for (Payment payment : payments) {
+            String payerName = payment.getPayer().getUsername();
+            String payeeName = payment.getPayee().getUsername();
+            Double amount = payment.getAmount();
+
+            owesAmount.put(payerName, owesAmount.getOrDefault(payerName, 0.0) + amount);
+            needToPay.put(payeeName, needToPay.getOrDefault(payeeName, 0.0) + amount);
+        }
+
+        return new BalanceSheetDTO(owesAmount, needToPay);
     }
 }

@@ -7,10 +7,7 @@ import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.expenseDetails.ExpenseDetailsRepository;
 import com.nc.group.Group;
 import com.nc.group.GroupRepository;
-import com.nc.model.ExpenseDTO;
-import com.nc.model.ExpenseDtoConverter;
 import com.nc.payment.Payment;
-import com.nc.payment.PaymentRepository;
 import com.nc.payment.PaymentService;
 import com.nc.split.Split;
 import com.nc.split.SplitRepository;
@@ -40,24 +37,15 @@ public class ExpenseService {
     private final SplitRepository splitRepository;
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
-    private final PaymentRepository paymentRepository;
 
     public List<ExpenseDTO> getAllExpenses() {
         logger.info("Fetching all expenses");
         return expenseRepository.findAll().stream()
-                .map(ExpenseDtoConverter::convertToDto)
+                .map(ExpenseDTO::convertToDto)
                 .toList();
     }
 
-    public Expense getExpenseById(Long id) {
-        logger.info("Fetching expense with ID {}", id);
-        return expenseRepository.findById(id).orElseThrow(() -> {
-            logger.error("Expense with ID {} not found", id);
-            return new NotFoundException("Expense with ID " + id + " not found");
-        });
-    }
-
-    public List<Expense> saveOrUpdate(ExpenseRequest expenseRequest) {
+    public List<ExpenseDTO> saveOrUpdate(ExpenseRequest expenseRequest) {
         User user = validateAndGetUser();
         expenseRequest.setPayer(user.getId());
         List<Expense> expenses = new ArrayList<>();
@@ -85,7 +73,9 @@ public class ExpenseService {
         splitExpenseAmongUsers(expenseRequest, expense);
         saveExpenseDetails(expenseRequest, expense);
 
-        return expenses;
+        return expenses.stream()
+                .map(ExpenseDTO::convertToDto)
+                .toList();
     }
 
     private User validateAndGetUser() {
@@ -121,7 +111,10 @@ public class ExpenseService {
 
             logger.info("Total amount paid so far for expense {}: {}", expenseRequest.getExpenseName(), totalAmountPaid);
 
-            if (totalAmountPaid + expenseRequest.getUserAmountPaid() > expense.getExpenseAmount()) {
+            if (totalAmountPaid == expense.getExpenseAmount()) {
+                logger.error("Total expense amount already paid");
+                throw new CreationException("Total expense amount already paid");
+            } else if (totalAmountPaid + expenseRequest.getUserAmountPaid() > expense.getExpenseAmount()) {
                 logger.error("Amount paid exceeds the expense amount. User needs to pay: {}", expense.getExpenseAmount() - totalAmountPaid);
                 throw new CreationException("Amount paid exceeds the expense amount. User needs to pay: " + (expense.getExpenseAmount() - totalAmountPaid));
             }

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -21,9 +22,12 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final UserRepository userRepository;
 
-    public List<Group> getAllGroups() {
+    public List<GroupResponseDTO> getAllGroups() {
         logger.info("Fetching all groups");
-        return groupRepository.findAll();
+        List<Group> groups = groupRepository.findAll();
+        return groups.stream()
+                .map(GroupResponseDTO::fromGroup)
+                .collect(Collectors.toList());
     }
 
     public Group getGroupById(Long id) {
@@ -35,7 +39,7 @@ public class GroupService {
                 });
     }
 
-    public Group saveOrUpdate(GroupRequest groupRequest) {
+    public GroupResponseDTO saveOrUpdate(GroupRequest groupRequest) {
         logger.info("Saving or updating group with name {}", groupRequest.getGroupName());
 
         String groupName = groupRequest.getGroupName().trim();
@@ -59,7 +63,7 @@ public class GroupService {
         try {
             Group savedGroup = groupRepository.save(group);
             logger.info("Group saved with ID {}", savedGroup.getId());
-            return savedGroup;
+            return GroupResponseDTO.fromGroup(savedGroup);
         } catch (Exception e) {
             logger.error("Failed to create group: {}", e.getMessage());
             throw new CreationException("Failed to create new group " + e.getMessage());
@@ -90,11 +94,6 @@ public class GroupService {
     public List<Group> getGroupByName(String groupName) {
         logger.info("Fetching groups with name {}", groupName);
         return groupRepository.findByGroupName(groupName);
-    }
-
-    public List<Group> findAll() {
-        logger.info("Fetching all groups");
-        return groupRepository.findAll();
     }
 
     public Group update(Long id, GroupRequest groupRequest) {

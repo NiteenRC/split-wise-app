@@ -1,8 +1,7 @@
 package com.nc.expense;
 
-import com.nc.model.ExpenseDTO;
 import com.nc.utility.HttpResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -10,17 +9,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@AllArgsConstructor
 @RequestMapping("/expenses")
 public class ExpenseController {
-
-    @Autowired
     private ExpenseService expenseService;
-
-    @GetMapping("/{expenseId}")
-    public ResponseEntity<Expense> getExpenseById(@PathVariable Long expenseId) {
-        Expense expense = expenseService.getExpenseById(expenseId);
-        return ResponseEntity.ok().body(expense);
-    }
 
     @GetMapping
     public ResponseEntity<?> getAllExpense() {
@@ -30,7 +22,7 @@ public class ExpenseController {
 
     @PostMapping
     public ResponseEntity<?> createExpense(@RequestBody ExpenseRequest expenseRequest) {
-        List<Expense> createdExpenses = expenseService.saveOrUpdate(expenseRequest);
+        List<ExpenseDTO> createdExpenses = expenseService.saveOrUpdate(expenseRequest);
         HttpResponse response = new HttpResponse("success", createdExpenses, "Expense created successfully");
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

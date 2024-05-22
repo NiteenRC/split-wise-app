@@ -1,4 +1,4 @@
-package com.nc.model;
+package com.nc.expenseDetails;
 
 import lombok.Data;
 

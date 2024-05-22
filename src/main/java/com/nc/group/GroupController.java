@@ -23,13 +23,13 @@ public class GroupController {
 
     @GetMapping
     public ResponseEntity<?> getAll() {
-        List<Group> group = groupService.findAll();
+        List<GroupResponseDTO> group = groupService.getAllGroups();
         return ResponseEntity.ok().body(group);
     }
 
     @PostMapping
-    public ResponseEntity<Group> createGroup(@RequestBody GroupRequest groupRequest) {
-        Group createdGroup = groupService.saveOrUpdate(groupRequest);
+    public ResponseEntity<?> createGroup(@RequestBody GroupRequest groupRequest) {
+        GroupResponseDTO createdGroup = groupService.saveOrUpdate(groupRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdGroup);
     }
 

@@ -15,10 +15,14 @@ public class PaymentController {
     private PaymentService paymentService;
 
     @GetMapping("/balance-sheet")
+    public ResponseEntity<?> paymentSummary() {
+        List<PaymentSummary> paymentSummary = paymentService.getPaymentSummaries();
+        return ResponseEntity.ok().body(paymentSummary);
+    }
+
+    @GetMapping
     public ResponseEntity<?> balanceSheet() {
-        List<PaymentSummary> b1 = paymentService.getPaymentSummaries();
-        //Map<User, Double> b2 = paymentService.generateBalanceSheetForUser();
-        //List<Payment> expense = paymentService.getExpenseByName(expenseName);
-        return ResponseEntity.ok().body(b1);
+        BalanceSheetDTO balanceSheetDTO = paymentService.getGroupBalanceSheet();
+        return ResponseEntity.ok().body(balanceSheetDTO);
     }
 }
