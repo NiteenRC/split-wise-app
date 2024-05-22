@@ -77,14 +77,17 @@ public class PaymentService {
         Map<String, Double> owesAmount = new HashMap<>();
         Map<String, Double> needToPay = new HashMap<>();
 
-        for (Payment payment : payments) {
+        payments.forEach(payment -> {
             String payerName = payment.getPayer().getUsername();
             String payeeName = payment.getPayee().getUsername();
-            Double amount = payment.getAmount();
+            double amount = payment.getAmount();
 
-            owesAmount.put(payerName, owesAmount.getOrDefault(payerName, 0.0) + amount);
-            needToPay.put(payeeName, needToPay.getOrDefault(payeeName, 0.0) + amount);
-        }
+            if (amount > 0) {
+                owesAmount.put(payerName, owesAmount.getOrDefault(payerName, 0.0) + amount);
+            } else {
+                needToPay.put(payeeName, needToPay.getOrDefault(payeeName, 0.0) + amount);
+            }
+        });
 
         return new BalanceSheetDTO(owesAmount, needToPay);
     }
