@@ -3,6 +3,7 @@ package com.nc.expense;
 import com.nc.exception.CreationException;
 import com.nc.exception.DuplicateException;
 import com.nc.exception.NotFoundException;
+import com.nc.expenseDetails.ExpenseDetailRequestDTO;
 import com.nc.expenseDetails.ExpenseDetails;
 import com.nc.expenseDetails.ExpenseDetailsRepository;
 import com.nc.group.Group;
@@ -47,15 +48,10 @@ public class ExpenseService {
 
     public List<ExpenseDTO> saveOrUpdate(ExpenseRequest expenseRequest) {
         User user = validateAndGetUser();
-        expenseRequest.setPayer(user.getId());
         List<Expense> expenses = new ArrayList<>();
 
         switch (expenseRequest.getSplitType()) {
             case EQUAL -> {
-                if (expenseRequest.getUserAmountPaid() != expenseRequest.getExpenseAmount()) {
-                    logger.error("Amount paid must equal to expense amount. User needs to pay: {}", expenseRequest.getExpenseAmount());
-                    throw new CreationException("Amount paid must equal to expense amount. User needs to pay: " + expenseRequest.getExpenseAmount());
-                }
                 Expense expense = saveExpense(expenseRequest);
                 expenses.add(expense);
             }
@@ -71,7 +67,7 @@ public class ExpenseService {
 
         Expense expense = expenses.get(0);
         splitExpenseAmongUsers(expenseRequest, expense);
-        saveExpenseDetails(expenseRequest, expense);
+        //saveExpenseDetails(expenseRequest, expense);
 
         return expenses.stream()
                 .map(ExpenseDTO::convertToDto)
@@ -90,36 +86,18 @@ public class ExpenseService {
 
     private Expense saveExpense(ExpenseRequest expenseRequest) {
         validateExpenseName(expenseRequest.getExpenseName());
-        Group group = validateAndGetGroup(expenseRequest.getGroupId(), expenseRequest.getSplitBetweenUserIds(), expenseRequest.getPayer());
+        Group group = validateAndGetGroup(expenseRequest.getGroupId(), expenseRequest.getSplitBetweenUserIds(), currentUserId());
         Expense expenseObject = createExpenseObject(expenseRequest, group);
         return saveExpense(expenseObject);
     }
 
     private Expense handleNonEqualSplit(ExpenseRequest expenseRequest) {
         logger.info("Handling non-equal split for expense: {}", expenseRequest.getExpenseName());
+        Expense expense = saveExpense(expenseRequest);
 
-        Optional<Expense> optionalExpense = expenseRepository
-                .findByExpenseNameAndSplitType(expenseRequest.getExpenseName(), expenseRequest.getSplitType());
+        saveExpenseDetails(expenseRequest, expense);
 
-        if (optionalExpense.isEmpty()) {
-            logger.info("Expense with name {} and split type {} not found, creating a new one", expenseRequest.getExpenseName(), expenseRequest.getSplitType());
-            return saveExpense(expenseRequest);
-        } else {
-            Expense expense = optionalExpense.get();
-            List<ExpenseDetails> expenseDetails = expenseDetailsRepository.findByExpense(expense);
-            double totalAmountPaid = expenseDetails.stream().mapToDouble(ExpenseDetails::getAmountPaid).sum();
-
-            logger.info("Total amount paid so far for expense {}: {}", expenseRequest.getExpenseName(), totalAmountPaid);
-
-            if (totalAmountPaid == expense.getExpenseAmount()) {
-                logger.error("Total expense amount already paid");
-                throw new CreationException("Total expense amount already paid");
-            } else if (totalAmountPaid + expenseRequest.getUserAmountPaid() > expense.getExpenseAmount()) {
-                logger.error("Amount paid exceeds the expense amount. User needs to pay: {}", expense.getExpenseAmount() - totalAmountPaid);
-                throw new CreationException("Amount paid exceeds the expense amount. User needs to pay: " + (expense.getExpenseAmount() - totalAmountPaid));
-            }
-            return expense;
-        }
+        return expense;
     }
 
     private void validateExpenseName(String expenseName) {
@@ -182,13 +160,13 @@ public class ExpenseService {
 
     private void splitExpenseAmongUsers(ExpenseRequest expenseRequest, Expense expense) {
         List<Long> splitBetweenUsers = expenseRequest.getSplitBetweenUserIds();
-        double splitAmount = expenseRequest.getUserAmountPaid() / splitBetweenUsers.size();
+        double splitAmount = expenseRequest.getExpenseAmount() / splitBetweenUsers.size();
 
         splitBetweenUsers.stream()
                 .map(user -> new PaymentDetail(
-                        expenseRequest.getPayer(),
+                        currentUserId(),
                         user,
-                        user.equals(expenseRequest.getPayer()) ? expenseRequest.getUserAmountPaid() - splitAmount : -splitAmount,
+                        user.equals(currentUserId()) ? expenseRequest.getExpenseAmount() - splitAmount : -splitAmount,
                         expense
                 ))
                 .forEach(paymentDetail -> savePayment(
@@ -224,17 +202,19 @@ public class ExpenseService {
     }
 
     private void saveExpenseDetails(ExpenseRequest expenseRequest, Expense savedExpense) {
-        Optional<User> payerOptional = userRepository.findById(expenseRequest.getPayer());
+        Optional<User> payerOptional = userRepository.findById(currentUserId());
         if (payerOptional.isEmpty()) {
-            logger.error("Payer with ID {} not found", expenseRequest.getPayer());
-            throw new NotFoundException("Payer with ID " + expenseRequest.getPayer() + " not found");
+            logger.error("Payer with ID {} not found", currentUserId());
+            throw new NotFoundException("Payer with ID " + currentUserId() + " not found");
         }
 
-        ExpenseDetails expenseDetails = new ExpenseDetails();
-        expenseDetails.setExpense(savedExpense);
-        expenseDetails.setPayer(payerOptional.get());
-        expenseDetails.setAmountPaid(expenseRequest.getUserAmountPaid());
-        expenseDetailsRepository.save(expenseDetails);
+        for(ExpenseDetailRequestDTO requestDTO : expenseRequest.getExpenseDetails()) {
+            ExpenseDetails expenseDetails = new ExpenseDetails();
+            expenseDetails.setExpense(savedExpense);
+            expenseDetails.setPayer(userRepository.findById(requestDTO.getPayerId()).get());
+            expenseDetails.setAmountPaid(requestDTO.getAmountPaid());
+            expenseDetailsRepository.save(expenseDetails);
+        }
         logger.info("Expense details for expense ID {} saved", savedExpense.getId());
     }
 
@@ -254,6 +234,10 @@ public class ExpenseService {
 
         splitService.saveOrUpdateSplit(splitToUpdate);
         logger.info("Group split updated for group ID {} and user ID {} with new split amount {}", group.getId(), user.getId(), newSplitAmount);
+    }
+
+    public Long currentUserId() {
+        return userRepository.findByUsername(UserContext.currentUsername()).get().getId();
     }
 
     private record PaymentDetail(Long payer, Long payee, double amount, Expense expense) {

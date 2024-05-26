@@ -1,5 +1,6 @@
 package com.nc.expense;
 
+import com.nc.expenseDetails.ExpenseDetailRequestDTO;
 import com.nc.utility.SplitType;
 import lombok.Data;
 
@@ -10,10 +11,8 @@ public class ExpenseRequest {
     private String expenseName;
     private String expenseType;
     private double expenseAmount;
-    private double userAmountPaid;
-    private Long payer;
     private List<Long> splitBetweenUserIds;
-    //private List<UserRequest> payers;
     private SplitType splitType;
     private Long groupId;
+    private List<ExpenseDetailRequestDTO> expenseDetails;
 }
