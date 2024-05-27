@@ -2,7 +2,6 @@ package com.nc.payment;
 
 import com.nc.balance.Balance;
 import com.nc.balance.BalanceService;
-import com.nc.group.GroupRepository;
 import com.nc.user.User;
 import com.nc.utility.UserContext;
 import lombok.AllArgsConstructor;

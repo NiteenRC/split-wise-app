@@ -92,7 +92,7 @@ public class ExpenseService {
 
     private Expense handleNonEqualSplit(ExpenseRequest expenseRequest) {
         logger.info("Handling non-equal split for expense: {}", expenseRequest.getExpenseName());
-        if(expenseRequest.getExpenseDetails() == null){
+        if (expenseRequest.getExpenseDetails() == null) {
             throw new NotFoundException("Expense details field must required");
         }
         Expense expense = saveExpense(expenseRequest);
