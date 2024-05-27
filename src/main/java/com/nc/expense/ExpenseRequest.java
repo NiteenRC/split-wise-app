@@ -11,7 +11,7 @@ public class ExpenseRequest {
     private String expenseName;
     private String expenseType;
     private double expenseAmount;
-    private List<Long> splitBetweenUserIds;
+    //private List<Long> splitBetweenUserIds;
     private SplitType splitType;
     private Long groupId;
     private List<ExpenseDetailRequestDTO> expenseDetails;

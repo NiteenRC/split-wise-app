@@ -1,6 +1,9 @@
 package com.nc.payment;
 
+import com.nc.balance.Balance;
+import com.nc.balance.BalanceService;
 import com.nc.group.GroupRepository;
+import com.nc.user.User;
 import com.nc.utility.UserContext;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -19,7 +22,7 @@ import java.util.stream.Collectors;
 public class PaymentService {
     private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
     private final PaymentRepository paymentRepository;
-    private final GroupRepository groupRepository;
+    private final BalanceService balanceService;
 
     public List<Payment> getAllTransactions() {
         logger.info("Fetching all transactions");
@@ -33,7 +36,36 @@ public class PaymentService {
 
     public Payment saveOrUpdateTransaction(Payment payment) {
         logger.info("Saving/updating transaction for payment with amount {}", payment.getAmount());
+        User payer = payment.getPayer();
+        User payee = payment.getPayee();
+        double amount = payment.getAmount();
+
+        updateBalances(payer, payee, amount);
+
         return paymentRepository.save(payment);
+    }
+
+    private void updateBalances(User payer, User payee, double amount) {
+        if (payer.equals(payee)) {
+            return; // Avoid self-reference balance updates
+        }
+
+        Balance balance = balanceService.findByUsers(payer, payee);
+
+        if (balance == null) {
+            balance = new Balance();
+            balance.setUser1(payer);
+            balance.setUser2(payee);
+            balance.setAmount(amount);
+        } else {
+            if (balance.getUser1().equals(payer)) {
+                balance.setAmount(balance.getAmount() + amount);
+            } else {
+                balance.setAmount(balance.getAmount() - amount);
+            }
+        }
+
+        balanceService.saveBalance(balance);
     }
 
     public void deleteTransaction(Long id) {

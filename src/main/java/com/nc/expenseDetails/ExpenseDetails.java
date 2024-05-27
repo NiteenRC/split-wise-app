@@ -18,5 +18,5 @@ public class ExpenseDetails {
     @JsonBackReference
     private Expense expense;
     @ManyToOne(fetch = FetchType.LAZY)
-    private User payer;
+    private User payee;
 }

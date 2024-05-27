@@ -30,13 +30,14 @@ public class GroupService {
                 .collect(Collectors.toList());
     }
 
-    public Group getGroupById(Long id) {
+    public GroupResponseDTO getGroupById(Long id) {
         logger.info("Fetching group with ID {}", id);
-        return groupRepository.findById(id)
+        Group group = groupRepository.findById(id)
                 .orElseThrow(() -> {
                     logger.error("Group with ID {} not found", id);
                     return new NotFoundException("Group with ID " + id + " not found");
                 });
+        return GroupResponseDTO.fromGroup(group);
     }
 
     public GroupResponseDTO saveOrUpdate(GroupRequest groupRequest) {

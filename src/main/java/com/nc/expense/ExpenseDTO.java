@@ -25,6 +25,11 @@ public class ExpenseDTO {
         dto.setStatus(expense.getStatus());
         dto.setSplitType(expense.getSplitType().name());
         dto.setGroupId(expense.getGroup().getId());
+        /*dto.setExpenseDetails(
+                expense.getExpenseDetails().stream()
+                        .map(ExpenseDetailDTO::fromExpenseDetails)
+                        .toList()
+        );*/
         return dto;
     }
 }

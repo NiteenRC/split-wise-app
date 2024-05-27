@@ -16,8 +16,8 @@ public class GroupController {
     private GroupService groupService;
 
     @GetMapping("/{groupId}")
-    public ResponseEntity<Group> getGroupById(@PathVariable Long groupId) {
-        Group group = groupService.getGroupById(groupId);
+    public ResponseEntity<?> getGroupById(@PathVariable Long groupId) {
+        GroupResponseDTO group = groupService.getGroupById(groupId);
         return ResponseEntity.ok().body(group);
     }
 
@@ -31,18 +31,6 @@ public class GroupController {
     public ResponseEntity<?> createGroup(@RequestBody GroupRequest groupRequest) {
         GroupResponseDTO createdGroup = groupService.saveOrUpdate(groupRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdGroup);
-    }
-
-    @PutMapping("/{groupId}")
-    public ResponseEntity<Group> updateGroup(@PathVariable Long groupId, @RequestBody GroupRequest groupRequest) {
-        Group updatedGroup = groupService.update(groupId, groupRequest);
-        return ResponseEntity.ok().body(updatedGroup);
-    }
-
-    @DeleteMapping("/{groupId}")
-    public ResponseEntity<?> deleteGroup(@PathVariable Long groupId) {
-        groupService.deleteGroup(groupId);
-        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/adduser/{groupId}")
