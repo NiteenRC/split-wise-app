@@ -41,18 +41,18 @@ public class BalanceService {
         for (Balance balance : balances) {
             if (isOwing) {
                 if (balance.getUser1().equals(user) && balance.getAmount() > 0) {
-                    result.add(balance.getUser2().getUsername() + " " + balance.getAmount());
+                    result.add(balance.getUser2().getUsername() + ": " + balance.getAmount());
                     total += balance.getAmount();
                 } else if (balance.getUser2().equals(user) && balance.getAmount() < 0) {
-                    result.add(balance.getUser1().getUsername() + " " + Math.abs(balance.getAmount()));
+                    result.add(balance.getUser1().getUsername() + ": " + Math.abs(balance.getAmount()));
                     total += Math.abs(balance.getAmount());
                 }
             } else {
                 if (balance.getUser2().equals(user) && balance.getAmount() > 0) {
-                    result.add(balance.getUser1().getUsername() + " " + balance.getAmount());
+                    result.add(balance.getUser1().getUsername() + ": " + balance.getAmount());
                     total += balance.getAmount();
                 } else if (balance.getUser1().equals(user) && balance.getAmount() < 0) {
-                    result.add(balance.getUser2().getUsername() + " " + Math.abs(balance.getAmount()));
+                    result.add(balance.getUser2().getUsername() + ": " + Math.abs(balance.getAmount()));
                     total += Math.abs(balance.getAmount());
                 }
             }

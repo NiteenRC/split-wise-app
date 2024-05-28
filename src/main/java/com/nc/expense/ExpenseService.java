@@ -53,11 +53,12 @@ public class ExpenseService {
         switch (expenseRequest.getSplitType()) {
             case EQUAL -> {
                 Expense expense = saveExpense(expenseRequest);
-                splitExpenseAmongUsers(expenseRequest, expense);
+                splitExpenseAmongUsersEqual(expenseRequest, expense);
                 expenses.add(expense);
             }
             case NON_EQUAL -> {
                 Expense expense = handleNonEqualSplit(expenseRequest);
+                splitExpenseAmongUsersNonEqual(expenseRequest, expense);
                 expenses.add(expense);
             }
             default -> {
@@ -116,8 +117,7 @@ public class ExpenseService {
             logger.error("Group with ID {} not found", groupId);
             throw new NotFoundException("Group with ID " + groupId + " not found");
         }
-        Group group = groupOptional.get();
-        return group;
+        return groupOptional.get();
     }
 
     private void validateGroupUsers(Group group, List<Long> splitBetweenUserIds, Long payer) {
@@ -159,7 +159,26 @@ public class ExpenseService {
         }
     }
 
-    private void splitExpenseAmongUsers(ExpenseRequest expenseRequest, Expense expense) {
+    private void splitExpenseAmongUsersNonEqual(ExpenseRequest expenseRequest, Expense expense) {
+        double totalUserAmountPaid = expenseRequest.getExpenseDetails().stream().mapToDouble(ExpenseDetailRequestDTO::getAmountPaid).sum();
+        double currentUserAmount = expenseRequest.getExpenseAmount() - totalUserAmountPaid;
+
+        expenseRequest.getExpenseDetails().stream()
+                .map(user -> new PaymentDetail(
+                        currentUserId(),
+                        user.getPayeeId(),
+                        user.equals(currentUserId()) ? currentUserAmount : -user.getAmountPaid(),
+                        expense
+                ))
+                .forEach(paymentDetail -> savePayment(
+                        paymentDetail.payer(),
+                        paymentDetail.payee(),
+                        paymentDetail.amount(),
+                        paymentDetail.expense()
+                ));
+    }
+
+    private void splitExpenseAmongUsersEqual(ExpenseRequest expenseRequest, Expense expense) {
         List<Long> splitBetweenUsers = groupRepository.findAllUsersById(expenseRequest.getGroupId())
                 .stream().map(User::getId).toList();
         double splitAmount = expenseRequest.getExpenseAmount() / splitBetweenUsers.size();
